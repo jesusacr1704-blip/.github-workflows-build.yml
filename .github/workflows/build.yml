@@ -4,7 +4,8 @@ name: Compilar Ajedrez para Android
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build:
@@ -18,31 +19,46 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            openjdk-17-jdk git zip unzip \
+            openjdk-17-jdk \
+            git zip unzip \
             python3-pip python3-venv \
             autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev \
             libncursesw5-dev libtinfo5 cmake \
             libffi-dev libssl-dev automake
 
-      - name: Seleccionar Java 17
+      - name: Configurar Java 17
         run: |
-          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
-          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> "$GITHUB_PATH"
           java -version
 
-      - name: Instalar herramientas Android
-        uses: android-actions/setup-android@v3
-
-      - name: Instalar SDK y AIDL
+      - name: Configurar Android SDK
+        shell: bash
         run: |
-          sdkmanager "platform-tools" \
+          set -e
+
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          export PATH="$JAVA_HOME/bin:$PATH"
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROIDSDK="$ANDROID_HOME"
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "No se encontró sdkmanager en $SDKMANAGER"
+            exit 1
+          fi
+
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+            "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
-          sdkmanager --licenses
-        env:
-          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses || true
+
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
 
       - name: Preparar Python
         run: |
@@ -55,10 +71,6 @@ jobs:
         run: |
           . .venv/bin/activate
           buildozer -v android debug
-        env:
-          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          ANDROIDSDK: /usr/local/lib/android/sdk
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4

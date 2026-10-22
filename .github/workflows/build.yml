@@ -15,7 +15,7 @@ jobs:
       - name: Descargar codigo
         uses: actions/checkout@v4
 
-      - name: Instalar Java 17 y dependencias
+      - name: Instalar dependencias
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -27,49 +27,61 @@ jobs:
             libncursesw5-dev libtinfo5 cmake \
             libffi-dev libssl-dev automake
 
-      - name: Configurar Java 17
+      - name: Configurar Java y SDK de Buildozer
+        shell: bash
         run: |
+          set -e
+
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
           echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> "$GITHUB_PATH"
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROIDSDK=$SDK" >> "$GITHUB_ENV"
+
+          mkdir -p "$SDK"
+
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64"
           java -version
 
-      - name: Configurar Android SDK y verificar AIDL
+      - name: Instalar herramientas Android y aceptar licencias
         shell: bash
         run: |
           set -e
 
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           export PATH="$JAVA_HOME/bin:$PATH"
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export ANDROIDSDK="$ANDROID_HOME"
 
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" \
+          SOURCE_SDK=/usr/local/lib/android/sdk
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          SDKMANAGER="$(find "$SOURCE_SDK/cmdline-tools" \
             -type f -name sdkmanager 2>/dev/null | head -n 1)"
 
           if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: No se encuentra sdkmanager"
+            echo "ERROR: No se encontro sdkmanager"
             exit 1
           fi
 
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+          echo "Aceptando licencias..."
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
+
+          echo "Instalando Build-Tools 35 y plataforma Android 35..."
+          "$SDKMANAGER" --sdk_root="$SDK" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "Verificando AIDL..."
+          find "$SDK/build-tools" -type f -name aidl -print
 
-          echo "Buscando AIDL..."
-          find "$ANDROID_HOME" -type f -name aidl -print
-
-          if ! find "$ANDROID_HOME/build-tools" \
-            -type f -name aidl -print -quit 2>/dev/null | grep -q .; then
-            echo "ERROR: AIDL no está instalado en build-tools"
+          if [ ! -x "$SDK/build-tools/35.0.0/aidl" ]; then
+            echo "ERROR: AIDL no se instalo en la ruta esperada"
             exit 1
           fi
 
-          echo "AIDL encontrado correctamente"
-          
+          echo "AIDL instalado correctamente"
+
       - name: Preparar Python
         run: |
           python3 -m venv .venv
@@ -78,9 +90,14 @@ jobs:
           pip install buildozer cython==0.29.34
 
       - name: Compilar APK
+        shell: bash
         run: |
           . .venv/bin/activate
           buildozer -v android debug
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
+          ANDROIDSDK: /home/runner/.buildozer/android/platform/android-sdk
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4

@@ -8,20 +8,39 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Descargar el codigo
+      - name: Descargar codigo
         uses: actions/checkout@v4
 
-      - name: Compilar APK
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          buildozer_version: stable
+      - name: Instalar Java y dependencias
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk \
+            python3-pip python3-venv \
+            autoconf libtool pkg-config \
+            zlib1g-dev libncurses5-dev \
+            libncursesw5-dev libtinfo5 cmake \
+            libffi-dev libssl-dev automake
 
-      - name: Guardar APK para descargar
+      - name: Preparar Python
+        run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip setuptools wheel
+          pip install buildozer cython==0.29.34
+
+      - name: Compilar APK
+        run: |
+          . .venv/bin/activate
+          buildozer -v android debug
+
+      - name: Publicar APK
         uses: actions/upload-artifact@v4
         with:
           name: Ajedrez-de-Madera-APK
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
+          if-no-files-found: error
           

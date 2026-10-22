@@ -89,6 +89,34 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install buildozer cython==0.29.34
 
+      - name: Compatibilidad con sdkmanager de Buildozer
+        shell: bash
+        run: |
+          set -e
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+          SOURCE_SDK=/usr/local/lib/android/sdk
+
+          REAL_SDKMANAGER="$(find "$SOURCE_SDK/cmdline-tools" \
+            -type f -name sdkmanager 2>/dev/null | head -n 1)"
+
+          if [ -z "$REAL_SDKMANAGER" ]; then
+            echo "No se encontró el sdkmanager actual"
+            exit 1
+          fi
+
+          mkdir -p "$SDK/tools/bin"
+
+          cat > "$SDK/tools/bin/sdkmanager" <<EOF
+          #!/usr/bin/env bash
+          exec "$REAL_SDKMANAGER" --sdk_root="$SDK" "\$@"
+          EOF
+
+          chmod +x "$SDK/tools/bin/sdkmanager"
+
+          "$SDK/tools/bin/sdkmanager" --list >/dev/null
+          echo "Compatibilidad de sdkmanager configurada"
+          
       - name: Compilar APK
         shell: bash
         run: |

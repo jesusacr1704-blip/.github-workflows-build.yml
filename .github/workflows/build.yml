@@ -25,6 +25,18 @@ jobs:
             libncursesw5-dev libtinfo5 cmake \
             libffi-dev libssl-dev automake
 
+      - name: Instalar herramientas Android
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar SDK y AIDL
+        run: |
+          sdkmanager "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+          sdkmanager --licenses
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+
       - name: Preparar Python
         run: |
           python3 -m venv .venv
@@ -36,6 +48,9 @@ jobs:
         run: |
           . .venv/bin/activate
           buildozer -v android debug
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROIDSDK: ${{ env.ANDROID_HOME }}
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4

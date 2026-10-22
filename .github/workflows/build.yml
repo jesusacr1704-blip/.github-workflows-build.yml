@@ -14,16 +14,23 @@ jobs:
       - name: Descargar codigo
         uses: actions/checkout@v4
 
-      - name: Instalar Java y dependencias
+      - name: Instalar Java 17 y dependencias
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git zip unzip openjdk-17-jdk \
+            openjdk-17-jdk git zip unzip \
             python3-pip python3-venv \
             autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev \
             libncursesw5-dev libtinfo5 cmake \
             libffi-dev libssl-dev automake
+
+      - name: Seleccionar Java 17
+        run: |
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          java -version
 
       - name: Instalar herramientas Android
         uses: android-actions/setup-android@v3
@@ -35,7 +42,7 @@ jobs:
             "build-tools;35.0.0"
           sdkmanager --licenses
         env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
       - name: Preparar Python
         run: |
@@ -49,8 +56,9 @@ jobs:
           . .venv/bin/activate
           buildozer -v android debug
         env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROIDSDK: ${{ env.ANDROID_HOME }}
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROIDSDK: /usr/local/lib/android/sdk
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4

@@ -40,15 +40,21 @@ jobs:
 
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           export PATH="$JAVA_HOME/bin:$PATH"
-          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           export ANDROIDSDK="$ANDROID_HOME"
 
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" \
+            -type f -name sdkmanager 2>/dev/null | head -n 1)"
 
-          if [ ! -x "$SDKMANAGER" ]; then
-            echo "No se encontró sdkmanager en $SDKMANAGER"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "No se encontró sdkmanager. Contenido del SDK:"
+            ls -la "$ANDROID_HOME" || true
+            find /usr/local/lib/android /opt -type f \
+              -name sdkmanager 2>/dev/null | head -n 20 || true
             exit 1
           fi
+
+          echo "Usando sdkmanager: $SDKMANAGER"
 
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
             "platform-tools" \
@@ -59,7 +65,8 @@ jobs:
 
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
-
+          
+      - 
       - name: Preparar Python
         run: |
           python3 -m venv .venv

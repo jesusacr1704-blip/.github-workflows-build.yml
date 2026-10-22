@@ -33,38 +33,42 @@ jobs:
           echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> "$GITHUB_PATH"
           java -version
 
-      - name: Configurar Android SDK
+      - name: Configurar Android SDK y verificar AIDL
         shell: bash
         run: |
           set -e
 
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           export PATH="$JAVA_HOME/bin:$PATH"
-          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_HOME=/usr/local/lib/android/sdk
           export ANDROIDSDK="$ANDROID_HOME"
 
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" \
             -type f -name sdkmanager 2>/dev/null | head -n 1)"
 
           if [ -z "$SDKMANAGER" ]; then
-            echo "No se encontró sdkmanager. Contenido del SDK:"
-            ls -la "$ANDROID_HOME" || true
-            find /usr/local/lib/android /opt -type f \
-              -name sdkmanager 2>/dev/null | head -n 20 || true
+            echo "ERROR: No se encuentra sdkmanager"
             exit 1
           fi
-
-          echo "Usando sdkmanager: $SDKMANAGER"
 
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses || true
-
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+          echo "Buscando AIDL..."
+          find "$ANDROID_HOME" -type f -name aidl -print
+
+          if ! find "$ANDROID_HOME/build-tools" \
+            -type f -name aidl -print -quit 2>/dev/null | grep -q .; then
+            echo "ERROR: AIDL no está instalado en build-tools"
+            exit 1
+          fi
+
+          echo "AIDL encontrado correctamente"
           
       - name: Preparar Python
         run: |
